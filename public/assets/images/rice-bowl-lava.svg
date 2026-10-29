@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 500" role="img" aria-label="Ilustrasi rice bowl ayam lava">
+  <defs><linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#FEEFCD"/><stop offset="1" stop-color="#F6D9B5"/></linearGradient><linearGradient id="bowl" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#E6C7A6"/></linearGradient><linearGradient id="sauce" x1="0" x2="1"><stop stop-color="#AD3029"/><stop offset="1" stop-color="#E16939"/></linearGradient></defs>
+  <rect width="680" height="500" rx="44" fill="url(#bg)"/>
+  <circle cx="510" cy="98" r="46" fill="#CD5252" opacity=".13"/><circle cx="116" cy="362" r="74" fill="#AD3029" opacity=".08"/>
+  <g transform="translate(114 90)">
+    <ellipse cx="228" cy="248" rx="203" ry="53" fill="#C68A72" opacity=".28"/><path d="M48 203c0 96 80 160 180 160s180-64 180-160H48Z" fill="url(#bowl)" stroke="#D5B89A" stroke-width="7"/><ellipse cx="228" cy="203" rx="180" ry="45" fill="#fff" stroke="#D5B89A" stroke-width="7"/>
+    <path d="M75 191c24-37 65-55 100-38 32-37 79-32 99 2 43-19 84 4 98 39-38 20-71 28-144 28-68 0-111-9-153-31Z" fill="#FFFDF3"/>
+    <path d="M133 161c8-40 44-55 73-35l26 31c21-42 70-45 92-13l18 41-56 22-38-12-56 14-54-16-28 9-24-17 47-24Z" fill="url(#sauce)"/>
+    <path d="M143 158c18-24 35-24 51-3m55 5c20-25 43-21 58 2m-48 36c12-14 31-16 45-5" fill="none" stroke="#F7A14B" stroke-linecap="round" stroke-width="9"/>
+    <g fill="#588A46"><ellipse cx="111" cy="181" rx="17" ry="8" transform="rotate(-32 111 181)"/><ellipse cx="356" cy="175" rx="19" ry="8" transform="rotate(29 356 175)"/><ellipse cx="190" cy="135" rx="14" ry="7" transform="rotate(22 190 135)"/></g>
+    <g fill="#F7C84E"><circle cx="111" cy="206" r="7"/><circle cx="321" cy="207" r="7"/><circle cx="250" cy="141" r="6"/></g>
+  </g>
+  <text x="38" y="60" font-family="Arial,sans-serif" font-size="15" font-weight="700" letter-spacing="3" fill="#AD3029">RICE UP FAVORITE</text>
+</svg>

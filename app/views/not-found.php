@@ -1,0 +1,1 @@
+<section class="empty-state"><span class="empty-icon">🍚</span><h1>Menu ini belum kami temukan.</h1><p>Silakan kembali ke daftar menu Rice Up.</p><a class="button button-primary" href="<?= e(route('home')) ?>">Kembali ke menu</a></section>

@@ -1,0 +1,7 @@
+Options -Indexes
+RewriteEngine On
+
+# Keep application internals out of the web root when hosted under htdocs.
+RewriteRule ^(?:app|config|database|docs|tests|tools|\.git)(?:/|$) - [F,L,NC]
+RewriteRule ^(?:\.env|README\.md|RICE_UP_PRD_AND_SYSTEM_ARCHITECTURE_PHP_MYSQL\.md)$ - [F,L,NC]
+RewriteRule ^$ public/ [L]

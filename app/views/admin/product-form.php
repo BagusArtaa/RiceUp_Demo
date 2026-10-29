@@ -1,0 +1,10 @@
+<section class="admin-heading"><div><span class="eyebrow eyebrow-dark">MENU MANAGEMENT</span><h1><?= $product ? 'Ubah produk' : 'Tambah produk' ?></h1><p>Informasi ini langsung dipakai pada katalog dan checkout.</p></div><a class="button button-outline" href="<?= e(route('admin-products')) ?>">← Kembali ke produk</a></section>
+<form class="admin-form panel" method="post" enctype="multipart/form-data" action="<?= e(route('admin-product-save')) ?>">
+    <?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) ($product['id'] ?? 0) ?>">
+    <label class="field"><span>Nama produk</span><input name="name" value="<?= e($product['name'] ?? '') ?>" maxlength="150" required></label>
+    <label class="field"><span>Deskripsi</span><textarea name="description" rows="4" maxlength="4000" required><?= e($product['description'] ?? '') ?></textarea></label>
+    <div class="form-two-col"><label class="field"><span>Harga (Rupiah)</span><input name="price" type="number" inputmode="decimal" min="1" max="100000000" step="0.01" value="<?= e($product['price'] ?? '') ?>" required></label><label class="field"><span>Stok tersedia</span><input name="stock" type="number" min="0" max="99999" step="1" value="<?= e($product['stock'] ?? '0') ?>" required></label></div>
+    <label class="field"><span>Foto produk <small>(JPEG, PNG, WebP · maksimal 2 MB)</small></span><input name="image" type="file" accept="image/jpeg,image/png,image/webp"><small><?= $product && $product['image_path'] ? 'Foto saat ini: ' . e($product['image_path']) : 'Jika kosong, ilustrasi Rice Up akan digunakan.' ?></small></label>
+    <label class="checkbox-field"><input type="checkbox" name="is_active" value="1" <?= !isset($product['is_active']) || (int) $product['is_active'] === 1 ? 'checked' : '' ?>><span>Produk aktif dan dapat dipesan</span></label>
+    <div class="form-actions"><a class="button button-outline" href="<?= e(route('admin-products')) ?>">Batal</a><button class="button button-primary" type="submit">Simpan produk</button></div>
+</form>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Rice Up">
+  <rect width="64" height="64" rx="22" fill="#AD3029"/>
+  <path d="M15 36h34l-4.2 12.3a6 6 0 0 1-5.7 4.1H24.9a6 6 0 0 1-5.7-4.1L15 36Z" fill="#FEEFCD"/>
+  <path d="M19 35c0-9 5.8-15 13-15s13 6 13 15H19Z" fill="#fff"/>
+  <path d="M23 29c3 2 5.4 2 8 0s5-2 10 0" fill="none" stroke="#CD5252" stroke-linecap="round" stroke-width="3"/>
+  <path d="M32 8v6m-10-3 3 5m17-5-3 5" stroke="#FEEFCD" stroke-linecap="round" stroke-width="3"/>
+</svg>

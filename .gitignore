@@ -1,0 +1,9 @@
+/config/local.php
+/public/uploads/*
+!/public/uploads/.gitkeep
+!/public/uploads/.htaccess
+/.phpunit.cache/
+/vendor/
+/.env
+/.env.*
+!/.env.example

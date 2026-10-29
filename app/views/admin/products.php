@@ -1,0 +1,10 @@
+<section class="admin-heading"><div><span class="eyebrow eyebrow-dark">MENU MANAGEMENT</span><h1>Produk</h1><p>Kelola menu, harga, ketersediaan, stok, dan foto produk.</p></div><a class="button button-primary" href="<?= e(route('admin-product-form')) ?>">+ Tambah produk</a></section>
+<section class="data-panel">
+    <?php if ($products === []): ?><div class="empty-state"><h2>Belum ada produk</h2><a class="button button-primary" href="<?= e(route('admin-product-form')) ?>">Tambah produk pertama</a></div><?php else: ?>
+    <div class="table-wrap"><table class="data-table"><thead><tr><th>Menu</th><th>Harga</th><th>Stok</th><th>Status</th><th>Aksi</th></tr></thead><tbody>
+    <?php foreach ($products as $product): ?><tr><td><div class="table-product"><img src="<?= e(asset($product['image_path'] ?: 'assets/images/rice-bowl-lava.svg')) ?>" alt=""><div><strong><?= e($product['name']) ?></strong><small><?= e(mb_strimwidth($product['description'], 0, 85, '…', 'UTF-8')) ?></small></div></div></td><td><?= e(money($product['price'])) ?></td><td><?= (int) $product['stock'] ?></td><td><span class="status-pill <?= (int) $product['is_active'] ? 'status-paid' : 'status-cancelled' ?>"><?= (int) $product['is_active'] ? 'Aktif' : 'Nonaktif' ?></span></td><td><div class="table-actions"><a class="table-action" href="<?= e(route('admin-product-form', ['id' => $product['id']])) ?>">Ubah</a>
+        <form method="post" action="<?= e(route('admin-product-toggle')) ?>"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) $product['id'] ?>"><button class="table-action" type="submit"><?= (int) $product['is_active'] ? 'Nonaktifkan' : 'Aktifkan' ?></button></form>
+        <form method="post" action="<?= e(route('admin-product-delete')) ?>" data-confirm="Hapus produk ini? Jika pernah dipesan, produk akan dinonaktifkan agar riwayat tetap utuh."><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) $product['id'] ?>"><button class="table-action danger-action" type="submit">Hapus</button></form>
+    </div></td></tr><?php endforeach; ?>
+    </tbody></table></div><?php endif; ?>
+</section>

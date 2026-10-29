@@ -1,0 +1,1 @@
+<section class="empty-state"><span class="empty-icon">🍲</span><h1>Maaf, ada kendala sebentar.</h1><p>Permintaanmu belum bisa diproses. Coba lagi beberapa saat kemudian.</p><a class="button button-primary" href="<?= e(route('home')) ?>">Kembali ke halaman utama</a></section>
