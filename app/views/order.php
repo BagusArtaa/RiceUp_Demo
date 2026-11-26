@@ -12,6 +12,22 @@
             <div><span>Status pesanan</span><strong class="status-pill status-<?= e($order['order_status']) ?>"><?= e(order_status_label($order['order_status'])) ?></strong></div>
             <div><span>Status pembayaran</span><strong class="status-pill status-<?= e($order['payment_status']) ?>"><?= e(payment_status_label($order['payment_status'])) ?></strong></div>
         </div>
+
+        <?php if (in_array($order['payment_method'], ['bank_transfer', 'qris'], true) && isset($paymentChannel) && $paymentChannel): ?>
+        <div class="payment-info-box">
+            <h3>Informasi pembayaran</h3>
+            <?php if ($order['payment_method'] === 'bank_transfer'): ?>
+                <p><span>Bank</span><strong><?= e($paymentChannel['bank_name']) ?></strong></p>
+                <p><span>No. Rekening</span><strong><?= e($paymentChannel['account_number']) ?></strong><button class="copy-button small" type="button" data-copy="<?= e($paymentChannel['account_number']) ?>">Salin</button></p>
+                <p><span>Atas Nama</span><strong><?= e($paymentChannel['account_holder']) ?></strong></p>
+            <?php else: ?>
+                <p><strong><?= e($paymentChannel['bank_name'] ?: 'QRIS') ?></strong></p>
+                <?php if ($paymentChannel['qris_image_path']): ?><img src="<?= e(asset($paymentChannel['qris_image_path'])) ?>" class="qris-display-img" alt="QR Code"><?php endif; ?>
+            <?php endif; ?>
+            <?php if ($paymentChannel['instructions']): ?><p class="channel-instructions"><?= e($paymentChannel['instructions']) ?></p><?php endif; ?>
+        </div>
+        <?php endif; ?>
+
         <h2>Detail menu</h2>
         <div class="order-item-list">
             <?php foreach ($items as $item): ?><div class="order-item"><span><?= (int) $item['quantity'] ?> × <?= e($item['product_name_snapshot']) ?></span><strong><?= e(money($item['line_total'])) ?></strong></div><?php endforeach; ?>
@@ -21,9 +37,24 @@
         <div class="summary-total"><span>Total pesanan</span><strong><?= e(money($order['total_amount'])) ?></strong></div>
         <div class="order-meta"><p><span>Pemesan</span><?= e($order['customer_name']) ?></p><p><span>Tanggal</span><?= e(format_date($order['created_at'])) ?></p><p><span>Pengambilan</span><?= $order['fulfillment_method'] === 'delivery' ? 'Delivery' : 'Ambil sendiri' ?></p><?php if ($order['delivery_address']): ?><p><span>Alamat</span><?= nl2br(e($order['delivery_address'])) ?></p><?php endif; ?></div>
 
-        <?php if ($order['payment_method'] === 'simulated_transfer' && in_array($order['payment_status'], ['unpaid', 'rejected'], true) && !in_array($order['order_status'], ['rejected', 'cancelled'], true)): ?>
-            <div class="inline-action-box"><div><strong>Transfer simulasi</strong><p>Jika demo pembayaran sudah dilakukan, kirim permintaan konfirmasi ke admin. Ini tidak memproses uang sungguhan.</p></div><form method="post" action="<?= e(route('order-payment')) ?>"><?= csrf_field() ?><input type="hidden" name="order_id" value="<?= (int) $order['id'] ?>"><button class="button button-outline" type="submit">Minta konfirmasi pembayaran</button></form></div>
+        <?php if (in_array($order['payment_method'], payment_methods_requiring_proof(), true) && in_array($order['payment_status'], ['unpaid', 'rejected'], true) && !in_array($order['order_status'], ['rejected', 'cancelled'], true)): ?>
+            <div class="inline-action-box">
+                <div><strong>Upload bukti pembayaran</strong><p>Upload foto/screenshot bukti transfer atau pembayaran QRIS kamu. Admin akan memverifikasi.</p></div>
+            </div>
+            <form method="post" action="<?= e(route('order-payment')) ?>" enctype="multipart/form-data" class="proof-upload-form">
+                <?= csrf_field() ?><input type="hidden" name="order_id" value="<?= (int) $order['id'] ?>">
+                <label class="field"><span>Bukti pembayaran (JPEG/PNG/WebP, maks 2 MB)</span><input type="file" name="payment_proof" accept="image/jpeg,image/png,image/webp" required></label>
+                <button class="button button-primary" type="submit">Kirim bukti pembayaran</button>
+            </form>
         <?php endif; ?>
+
+        <?php if ($order['payment_proof_path']): ?>
+            <div class="proof-display">
+                <h3>Bukti pembayaran terkirim</h3>
+                <img src="<?= e(asset($order['payment_proof_path'])) ?>" alt="Bukti pembayaran" class="proof-image">
+            </div>
+        <?php endif; ?>
+
         <?php if ($order['order_status'] === 'pending' && in_array($order['payment_status'], ['unpaid', 'rejected'], true)): ?>
             <form method="post" action="<?= e(route('order-cancel')) ?>" class="cancel-order-form" data-confirm="Batalkan pesanan ini? Stok akan dikembalikan satu kali."><?= csrf_field() ?><input type="hidden" name="order_id" value="<?= (int) $order['id'] ?>"><button class="text-button danger-text" type="submit">Batalkan pesanan</button></form>
         <?php endif; ?>
@@ -38,4 +69,4 @@
         <?php endif; ?>
     </aside>
 </div>
-<p class="center-link"><?php if (!empty($_SESSION['verified_phone'])): ?><a class="continue-link" href="<?= e(route('order-history')) ?>">Lihat riwayat pesanan</a> <span>·</span><?php endif; ?> <a class="continue-link" href="<?= e(route('order-lookup')) ?>">Verifikasi kode untuk melihat riwayat</a> <span>·</span> <a class="continue-link" href="<?= e(route('home')) ?>">Kembali ke menu</a></p>
+<p class="center-link"><?php if (!empty($_SESSION['verified_phone'])): ?><a class="continue-link" href="<?= e(route('order-history')) ?>">Lihat riwayat pesanan</a> <span>·</span><?php endif; ?> <a class="continue-link" href="<?= e(route('order-lookup')) ?>">Cek pesanan lain</a> <span>·</span> <a class="continue-link" href="<?= e(route('home')) ?>">Kembali ke menu</a></p>

@@ -31,6 +31,7 @@ $errorMessage = flash('error');
                 <a href="<?= e(route('admin')) ?>">Dashboard</a>
                 <a href="<?= e(route('admin-products')) ?>">Produk</a>
                 <a href="<?= e(route('admin-orders')) ?>">Pesanan</a>
+                <a href="<?= e(route('admin-channels')) ?>">Pembayaran</a>
                 <a href="<?= e(route('admin-expenses')) ?>">Pengeluaran</a>
                 <a href="<?= e(route('admin-reports')) ?>">Laporan</a>
                 <span class="nav-user"><?= e($_SESSION['admin_username'] ?? 'Admin') ?></span>
@@ -57,6 +58,6 @@ $errorMessage = flash('error');
         <p class="footer-note">Harga, stok, dan pembayaran pada situs ini merupakan simulasi untuk demo E-Business.</p>
     </footer>
 </div>
-<script src="<?= e(asset('assets/js/app.js')) ?>" defer></script>
+<script src="<?= e(asset('assets/js/app.js') . '?v=' . filemtime(APP_ROOT . '/public/assets/js/app.js')) ?>" defer></script>
 </body>
 </html>

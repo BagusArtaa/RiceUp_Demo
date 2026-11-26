@@ -83,7 +83,8 @@ function handle_admin_post(PDO $pdo): void
     }
     $page = is_string($_GET['page'] ?? null) ? $_GET['page'] : '';
     $actions = ['admin-login', 'admin-logout', 'admin-product-save', 'admin-product-toggle', 'admin-product-delete',
-        'admin-order-status', 'admin-payment-status', 'admin-expense-create'];
+        'admin-order-status', 'admin-payment-status', 'admin-expense-create',
+        'admin-channel-save', 'admin-channel-toggle', 'admin-channel-delete'];
     if (!in_array($page, $actions, true)) {
         return;
     }
@@ -281,6 +282,120 @@ function handle_admin_post(PDO $pdo): void
             $save->execute([$description, $category, cents_to_decimal($amountCents), $date, (int) $_SESSION['admin_id']]);
             flash('success', 'Pengeluaran berhasil dicatat.');
             redirect(route('admin-expenses'));
+        }
+
+        if ($page === 'admin-channel-save') {
+            $returnPage = 'admin-channels';
+            $channelType = post_string('channel_type', 20);
+            $bankName = post_string('bank_name', 100);
+            $qrisLabel = post_string('qris_label', 100);
+            $accountNumber = post_string('account_number', 50);
+            $accountHolder = post_string('account_holder', 120);
+            $instructions = post_string('instructions', 500);
+            if (!in_array($channelType, ['bank_transfer', 'qris'], true)) {
+                throw new DomainException('Pilih jenis saluran yang valid.');
+            }
+            if ($channelType === 'bank_transfer') {
+                if (mb_strlen($bankName, 'UTF-8') < 2) {
+                    throw new DomainException('Nama bank harus diisi.');
+                }
+                if (mb_strlen($accountNumber, 'UTF-8') < 3 || mb_strlen($accountHolder, 'UTF-8') < 2) {
+                    throw new DomainException('Nomor rekening dan nama pemilik harus diisi untuk transfer bank.');
+                }
+            }
+            $qrisImagePath = null;
+            if ($channelType === 'qris') {
+                if (empty($_FILES['qris_image']) || ($_FILES['qris_image']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+                    throw new DomainException('Gambar QRIS wajib diunggah untuk saluran QRIS.');
+                }
+                $file = $_FILES['qris_image'];
+                if ($file['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'] ?? '')) {
+                    throw new DomainException('Gambar QRIS tidak berhasil diunggah.');
+                }
+                if ((int) $file['size'] > 2 * 1024 * 1024) {
+                    throw new DomainException('Ukuran gambar QRIS maksimal 2 MB.');
+                }
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $mime = $finfo->file($file['tmp_name']);
+                $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+                if (!isset($extensions[$mime]) || @getimagesize($file['tmp_name']) === false) {
+                    throw new DomainException('Format gambar QRIS harus JPEG, PNG, atau WebP.');
+                }
+                $imageName = 'qris_' . bin2hex(random_bytes(16)) . '.' . $extensions[$mime];
+                $destination = APP_ROOT . '/public/uploads/' . $imageName;
+                if (!move_uploaded_file($file['tmp_name'], $destination)) {
+                    throw new DomainException('Gambar QRIS tidak dapat disimpan.');
+                }
+                $qrisImagePath = 'uploads/' . $imageName;
+            }
+            $pdo->beginTransaction();
+            try {
+                if ($channelType === 'qris') {
+                    $pdo->exec("UPDATE payment_channels SET is_active = 0 WHERE channel_type = 'qris'");
+                }
+                $maxSort = (int) $pdo->query('SELECT COALESCE(MAX(sort_order),0) FROM payment_channels')->fetchColumn();
+                $save = $pdo->prepare('INSERT INTO payment_channels (channel_type, bank_name, account_number, account_holder, qris_image_path, instructions, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)');
+                $save->execute([
+                    $channelType,
+                    $channelType === 'qris' ? ($qrisLabel !== '' ? $qrisLabel : 'QRIS') : $bankName,
+                    $channelType === 'bank_transfer' ? $accountNumber : null,
+                    $channelType === 'bank_transfer' ? $accountHolder : null,
+                    $qrisImagePath, $instructions !== '' ? $instructions : null, $maxSort + 1,
+                ]);
+                $pdo->commit();
+            } catch (Throwable $exception) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                if ($qrisImagePath !== null) {
+                    remove_managed_image($qrisImagePath);
+                }
+                throw $exception;
+            }
+            flash('success', $channelType === 'qris' ? 'QRIS berhasil ditambahkan dan diaktifkan.' : 'Rekening bank berhasil ditambahkan.');
+            redirect(route('admin-channels'));
+        }
+
+        if ($page === 'admin-channel-toggle') {
+            $returnPage = 'admin-channels';
+            $id = filter_var($_POST['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if ($id === false) {
+                throw new DomainException('Saluran tidak valid.');
+            }
+            $pdo->beginTransaction();
+            $query = $pdo->prepare('SELECT channel_type, is_active FROM payment_channels WHERE id = ? FOR UPDATE');
+            $query->execute([$id]);
+            $channel = $query->fetch();
+            if (!$channel) {
+                $pdo->rollBack();
+                throw new DomainException('Saluran tidak ditemukan.');
+            }
+            $nextActive = (int) $channel['is_active'] === 1 ? 0 : 1;
+            if ($channel['channel_type'] === 'qris' && $nextActive === 1) {
+                $pdo->prepare("UPDATE payment_channels SET is_active = 0 WHERE channel_type = 'qris' AND id <> ?")->execute([$id]);
+            }
+            $pdo->prepare('UPDATE payment_channels SET is_active = ? WHERE id = ?')->execute([$nextActive, $id]);
+            $pdo->commit();
+            flash('success', 'Status saluran pembayaran diperbarui.');
+            redirect(route('admin-channels'));
+        }
+
+        if ($page === 'admin-channel-delete') {
+            $returnPage = 'admin-channels';
+            $id = filter_var($_POST['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if ($id === false) {
+                throw new DomainException('Saluran tidak valid.');
+            }
+            $query = $pdo->prepare('SELECT qris_image_path FROM payment_channels WHERE id = ?');
+            $query->execute([$id]);
+            $channel = $query->fetch();
+            if (!$channel) {
+                throw new DomainException('Saluran tidak ditemukan.');
+            }
+            $pdo->prepare('DELETE FROM payment_channels WHERE id = ?')->execute([$id]);
+            remove_managed_image($channel['qris_image_path']);
+            flash('success', 'Saluran pembayaran berhasil dihapus.');
+            redirect(route('admin-channels'));
         }
     } catch (DomainException $exception) {
         flash('error', $exception->getMessage());

@@ -9,10 +9,25 @@
             <?php if (in_array($order['order_status'], ['cancelled', 'rejected'], true)): ?><p class="refund-policy">Pengembalian dana tidak tersedia pada demo. Status ini hanya dapat diterapkan sebelum pembayaran dikonfirmasi.</p><?php endif; ?>
         </section>
         <section class="data-panel"><h2>Pembayaran</h2><p class="payment-method-label">Metode: <strong><?= e(payment_methods()[$order['payment_method']] ?? $order['payment_method']) ?></strong></p><p><span class="status-pill status-<?= e($order['payment_status']) ?>"><?= e(payment_status_label($order['payment_status'])) ?></span></p>
+
+            <?php if ($order['payment_proof_path']): ?>
+                <div class="proof-display admin-proof">
+                    <h3>Bukti pembayaran dari pembeli</h3>
+                    <a href="<?= e(asset($order['payment_proof_path'])) ?>" target="_blank" rel="noopener"><img src="<?= e(asset($order['payment_proof_path'])) ?>" alt="Bukti pembayaran" class="proof-image"></a>
+                    <small class="muted">Klik gambar untuk memperbesar di tab baru.</small>
+                </div>
+            <?php endif; ?>
+
+            <?php if (isset($paymentChannel) && $paymentChannel): ?>
+                <div class="payment-channel-info">
+                    <small class="muted">Saluran: <?= e($paymentChannel['bank_name'] ?: 'QRIS') ?><?php if ($paymentChannel['account_number']): ?> — <?= e($paymentChannel['account_number']) ?> a.n. <?= e($paymentChannel['account_holder']) ?><?php endif; ?></small>
+                </div>
+            <?php endif; ?>
+
             <?php if (in_array($order['payment_status'], ['unpaid', 'awaiting_confirmation'], true) && !in_array($order['order_status'], ['rejected', 'cancelled'], true)): ?><div class="admin-payment-actions">
                 <form method="post" action="<?= e(route('admin-payment-status')) ?>"><?= csrf_field() ?><input type="hidden" name="order_id" value="<?= (int) $order['id'] ?>"><input type="hidden" name="payment_status" value="paid"><button class="button button-primary button-wide" type="submit">Konfirmasi pembayaran</button></form>
-                <?php if ($order['payment_status'] === 'awaiting_confirmation'): ?><form method="post" action="<?= e(route('admin-payment-status')) ?>" data-confirm="Tolak pembayaran simulasi ini? Stok baru kembali saat pesanan juga ditolak atau dibatalkan."><?= csrf_field() ?><input type="hidden" name="order_id" value="<?= (int) $order['id'] ?>"><input type="hidden" name="payment_status" value="rejected"><button class="button button-outline button-wide" type="submit">Tolak pembayaran</button></form><?php endif; ?>
-            </div><p class="summary-hint">Pembayaran pada website ini adalah simulasi. Konfirmasi hanya mencatat penerimaan demo.</p><?php else: ?><p class="muted">Status pembayaran tidak dapat diubah lagi.</p><?php endif; ?>
+                <?php if ($order['payment_status'] === 'awaiting_confirmation'): ?><form method="post" action="<?= e(route('admin-payment-status')) ?>" data-confirm="Tolak pembayaran ini? Stok baru kembali saat pesanan juga ditolak atau dibatalkan."><?= csrf_field() ?><input type="hidden" name="order_id" value="<?= (int) $order['id'] ?>"><input type="hidden" name="payment_status" value="rejected"><button class="button button-outline button-wide" type="submit">Tolak pembayaran</button></form><?php endif; ?>
+            </div><p class="summary-hint">Periksa bukti pembayaran di atas sebelum mengonfirmasi.</p><?php else: ?><p class="muted">Status pembayaran tidak dapat diubah lagi.</p><?php endif; ?>
             <?php if ($order['payment_status'] === 'paid'): ?><p class="payment-date">Dikonfirmasi <?= e(format_date($order['payment_confirmed_at'])) ?></p><?php endif; ?>
         </section>
     </div>

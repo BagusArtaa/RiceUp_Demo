@@ -60,9 +60,11 @@ try {
             }
             $old = $_SESSION['_checkout_old'] ?? [];
             unset($_SESSION['_checkout_old']);
+            $paymentChannels = $pdo->query('SELECT * FROM payment_channels WHERE is_active = 1 ORDER BY sort_order, id')->fetchAll();
             render('checkout', [
                 'title' => 'Checkout', 'items' => $items, 'subtotal' => $subtotal,
                 'checkoutToken' => $_SESSION['checkout_token'], 'old' => is_array($old) ? $old : [],
+                'paymentChannels' => $paymentChannels,
             ]);
             break;
 
@@ -85,7 +87,7 @@ try {
             $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             $order = $id === false ? null : accessible_order($pdo, (int) $id);
             if (!$order) {
-                flash('error', 'Untuk membuka status pesanan, masukkan kode dan nomor telepon.');
+                flash('error', 'Untuk membuka status pesanan, masukkan kode pesanan.');
                 redirect(route('order-lookup'));
             }
             $itemQuery = $pdo->prepare('SELECT product_name_snapshot, unit_price, quantity, line_total FROM order_items WHERE order_id = ? ORDER BY id');
@@ -94,9 +96,16 @@ try {
             $logQuery->execute([(int) $order['id']]);
             $created = !empty($_SESSION['created_orders'][(int) $order['id']]);
             unset($_SESSION['created_orders'][(int) $order['id']]);
+            $paymentChannel = null;
+            if ($order['payment_channel_id']) {
+                $chQuery = $pdo->prepare('SELECT * FROM payment_channels WHERE id = ?');
+                $chQuery->execute([(int) $order['payment_channel_id']]);
+                $paymentChannel = $chQuery->fetch() ?: null;
+            }
             render('order', [
                 'title' => 'Status ' . $order['order_code'], 'order' => $order,
                 'items' => $itemQuery->fetchAll(), 'logs' => $logQuery->fetchAll(), 'created' => $created,
+                'paymentChannel' => $paymentChannel,
             ]);
             break;
 
@@ -209,7 +218,13 @@ try {
             $logs->execute([(int) $order['id']]);
             $possible = ['confirmed', 'processing', 'ready', 'completed', 'rejected', 'cancelled'];
             $transitions = array_values(array_filter($possible, static fn($status) => order_transition_allowed($order['order_status'], $status)));
-            render('admin/order-detail', ['title' => 'Pesanan ' . $order['order_code'], 'admin_area' => true, 'order' => $order, 'items' => $items->fetchAll(), 'logs' => $logs->fetchAll(), 'transitions' => $transitions]);
+            $paymentChannel = null;
+            if ($order['payment_channel_id']) {
+                $chQuery = $pdo->prepare('SELECT * FROM payment_channels WHERE id = ?');
+                $chQuery->execute([(int) $order['payment_channel_id']]);
+                $paymentChannel = $chQuery->fetch() ?: null;
+            }
+            render('admin/order-detail', ['title' => 'Pesanan ' . $order['order_code'], 'admin_area' => true, 'order' => $order, 'items' => $items->fetchAll(), 'logs' => $logs->fetchAll(), 'transitions' => $transitions, 'paymentChannel' => $paymentChannel]);
             break;
 
         case 'admin-expenses':
@@ -217,6 +232,12 @@ try {
             $expenses = $pdo->query('SELECT id, description, category, amount, expense_date, created_at FROM expenses ORDER BY expense_date DESC, id DESC LIMIT 60')->fetchAll();
             $today = (new DateTimeImmutable('today'))->format('Y-m-d');
             render('admin/expenses', ['title' => 'Pengeluaran', 'admin_area' => true, 'expenses' => $expenses, 'categories' => admin_categories(), 'today' => $today]);
+            break;
+
+        case 'admin-channels':
+            require_admin();
+            $channels = $pdo->query('SELECT * FROM payment_channels ORDER BY sort_order, id')->fetchAll();
+            render('admin/payment-channels', ['title' => 'Saluran Pembayaran', 'admin_area' => true, 'channels' => $channels]);
             break;
 
         case 'admin-reports':

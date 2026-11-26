@@ -37,15 +37,14 @@ function accessible_order(PDO $pdo, int $orderId): ?array
 {
     $authorizedBySession = !empty($_SESSION['accessible_orders'][$orderId]);
     $verifiedPhone = $_SESSION['verified_phone'] ?? null;
-    if (!$authorizedBySession && !is_string($verifiedPhone)) {
-        return null;
-    }
-    if (is_string($verifiedPhone)) {
+    if ($authorizedBySession) {
+        $query = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
+        $query->execute([$orderId]);
+    } elseif (is_string($verifiedPhone)) {
         $query = $pdo->prepare('SELECT * FROM orders WHERE id = ? AND customer_phone = ?');
         $query->execute([$orderId, $verifiedPhone]);
     } else {
-        $query = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
-        $query->execute([$orderId]);
+        return null;
     }
     $order = $query->fetch();
     return $order ?: null;
@@ -127,6 +126,7 @@ function handle_customer_post(PDO $pdo): void
             $fulfillment = post_string('fulfillment_method', 20);
             $address = post_string('delivery_address', 500);
             $paymentMethod = post_string('payment_method', 40);
+            $paymentChannelId = filter_var($_POST['payment_channel_id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
             $notes = post_string('notes', 500);
             if (mb_strlen($name, 'UTF-8') < 2) {
                 throw new DomainException('Nama pemesan minimal 2 karakter.');
@@ -141,7 +141,19 @@ function handle_customer_post(PDO $pdo): void
                 throw new DomainException('Alamat delivery harus diisi dengan lengkap.');
             }
             if (!array_key_exists($paymentMethod, payment_methods())) {
-                throw new DomainException('Pilih metode pembayaran simulasi.');
+                throw new DomainException('Pilih metode pembayaran yang valid.');
+            }
+            if (in_array($paymentMethod, ['bank_transfer', 'qris'], true)) {
+                if ((int) $paymentChannelId < 1) {
+                    throw new DomainException('Pilih salah satu saluran pembayaran.');
+                }
+                $channelQuery = $pdo->prepare('SELECT id FROM payment_channels WHERE id = ? AND channel_type = ? AND is_active = 1');
+                $channelQuery->execute([(int) $paymentChannelId, $paymentMethod]);
+                if (!$channelQuery->fetchColumn()) {
+                    throw new DomainException('Saluran pembayaran tidak tersedia atau tidak sesuai metode yang dipilih.');
+                }
+            } else {
+                $paymentChannelId = 0;
             }
 
             $order = OrderService::create($pdo, $token, [
@@ -151,6 +163,7 @@ function handle_customer_post(PDO $pdo): void
                 'delivery_address' => $fulfillment === 'delivery' ? $address : null,
                 'notes' => $notes !== '' ? $notes : null,
                 'payment_method' => $paymentMethod,
+                'payment_channel_id' => (int) $paymentChannelId > 0 ? (int) $paymentChannelId : null,
             ], $_SESSION['cart'] ?? []);
             $_SESSION['cart'] = [];
             if (($_SESSION['verified_phone'] ?? null) !== $order['customer_phone']) {
@@ -174,25 +187,16 @@ function handle_customer_post(PDO $pdo): void
             }
             $pdo->prepare('INSERT INTO order_lookup_attempts (fingerprint) VALUES (?)')->execute([$fingerprint]);
             $code = strtoupper(post_string('order_code', 30));
-            $phone = phone_normalize(post_string('customer_phone', 30));
-            if (!preg_match('/^RU[0-9A-Z]{8,18}$/', $code) || !phone_is_valid($phone)) {
-                throw new DomainException('Kode pesanan atau nomor telepon tidak cocok. Periksa kembali datanya.');
+            if (!preg_match('/^RU[0-9A-Z]{8,18}$/', $code)) {
+                throw new DomainException('Kode pesanan tidak ditemukan. Periksa kembali kode pesanan Anda.');
             }
-            $query = $pdo->prepare('SELECT id FROM orders WHERE order_code = ? AND customer_phone = ?');
-            $query->execute([$code, $phone]);
+            $query = $pdo->prepare('SELECT id FROM orders WHERE order_code = ?');
+            $query->execute([$code]);
             $orderId = $query->fetchColumn();
             if (!$orderId) {
-                throw new DomainException('Kode pesanan atau nomor telepon tidak cocok. Periksa kembali datanya.');
+                throw new DomainException('Kode pesanan tidak ditemukan. Periksa kembali kode pesanan Anda.');
             }
-            if (($_SESSION['verified_phone'] ?? null) !== $phone) {
-                $_SESSION['accessible_orders'] = [];
-            }
-            $_SESSION['verified_phone'] = $phone;
-            $history = $pdo->prepare('SELECT id FROM orders WHERE customer_phone = ? ORDER BY created_at DESC LIMIT 50');
-            $history->execute([$phone]);
-            foreach ($history->fetchAll(PDO::FETCH_COLUMN) as $historyOrderId) {
-                $_SESSION['accessible_orders'][(int) $historyOrderId] = time();
-            }
+            $_SESSION['accessible_orders'][(int) $orderId] = time();
             redirect(route('order', ['id' => (int) $orderId]));
         }
 
@@ -200,14 +204,18 @@ function handle_customer_post(PDO $pdo): void
             $returnPage = 'order-lookup';
             $id = filter_var($_POST['order_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if ($id === false || accessible_order($pdo, (int) $id) === null) {
-                throw new DomainException('Pesanan tidak ditemukan. Cari pesanan dengan kode dan nomor telepon.');
+                throw new DomainException('Pesanan tidak ditemukan. Cari pesanan menggunakan kode pesanan.');
             }
             if ($page === 'order-cancel') {
                 OrderService::transition($pdo, (int) $id, 'cancelled', null);
                 flash('success', 'Pesanan dibatalkan dan stok dikembalikan.');
             } else {
+                $proofPath = upload_payment_proof();
+                if ($proofPath !== null) {
+                    $pdo->prepare('UPDATE orders SET payment_proof_path = ? WHERE id = ?')->execute([$proofPath, (int) $id]);
+                }
                 OrderService::payment($pdo, (int) $id, 'awaiting_confirmation', null);
-                flash('success', 'Permintaan konfirmasi pembayaran simulasi dikirim.');
+                flash('success', 'Bukti pembayaran dikirim. Menunggu konfirmasi admin.');
             }
             redirect(route('order', ['id' => (int) $id]));
         }
@@ -221,6 +229,7 @@ function handle_customer_post(PDO $pdo): void
                 'fulfillment_method' => post_string('fulfillment_method', 20),
                 'delivery_address' => post_string('delivery_address', 500),
                 'payment_method' => post_string('payment_method', 40),
+                'payment_channel_id' => post_string('payment_channel_id', 10),
                 'notes' => post_string('notes', 500),
             ];
         }

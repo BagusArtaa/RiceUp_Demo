@@ -130,10 +130,45 @@ function phone_is_valid(string $phone): bool
 function payment_methods(): array
 {
     return [
-        'simulated_transfer' => 'Transfer simulasi',
+        'bank_transfer' => 'Transfer Bank',
+        'qris' => 'QRIS',
         'cash_on_delivery' => 'Tunai saat diantar',
         'cash_on_pickup' => 'Tunai saat diambil',
     ];
+}
+
+function payment_methods_requiring_proof(): array
+{
+    return ['bank_transfer', 'qris'];
+}
+
+function upload_payment_proof(): ?string
+{
+    if (empty($_FILES['payment_proof']) || !is_array($_FILES['payment_proof'])) {
+        return null;
+    }
+    $file = $_FILES['payment_proof'];
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        return null;
+    }
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'] ?? '')) {
+        throw new DomainException('Bukti pembayaran tidak berhasil diunggah. Pilih gambar baru lalu coba lagi.');
+    }
+    if ((int) $file['size'] < 1 || (int) $file['size'] > 2 * 1024 * 1024) {
+        throw new DomainException('Ukuran gambar bukti pembayaran maksimal 2 MB.');
+    }
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file($file['tmp_name']);
+    $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+    if (!isset($extensions[$mime]) || @getimagesize($file['tmp_name']) === false) {
+        throw new DomainException('Format bukti pembayaran harus JPEG, PNG, atau WebP yang valid.');
+    }
+    $name = 'proof_' . bin2hex(random_bytes(16)) . '.' . $extensions[$mime];
+    $destination = APP_ROOT . '/public/uploads/' . $name;
+    if (!move_uploaded_file($file['tmp_name'], $destination)) {
+        throw new DomainException('Bukti pembayaran tidak dapat disimpan. Periksa izin folder uploads.');
+    }
+    return 'uploads/' . $name;
 }
 
 function order_status_label(string $status): string

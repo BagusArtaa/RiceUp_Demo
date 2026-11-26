@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS orders (
     total_amount DECIMAL(12,2) NOT NULL,
     order_status VARCHAR(30) NOT NULL DEFAULT 'pending',
     payment_method VARCHAR(40) NOT NULL,
+    payment_channel_id INT UNSIGNED NULL,
+    payment_proof_path VARCHAR(255) NULL,
     payment_status VARCHAR(30) NOT NULL DEFAULT 'unpaid',
     payment_confirmed_at DATETIME NULL,
     stock_released_at DATETIME NULL,
@@ -101,6 +103,21 @@ CREATE TABLE IF NOT EXISTS order_lookup_attempts (
     fingerprint CHAR(64) NOT NULL,
     attempted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_order_lookup_fingerprint_date (fingerprint, attempted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS payment_channels (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    channel_type ENUM('bank_transfer','qris') NOT NULL,
+    bank_name VARCHAR(100) NULL,
+    account_number VARCHAR(50) NULL,
+    account_holder VARCHAR(120) NULL,
+    qris_image_path VARCHAR(255) NULL,
+    instructions TEXT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_payment_channels_active (is_active, sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT IGNORE INTO products (slug, name, description, price, stock, image_path, is_active) VALUES

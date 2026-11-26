@@ -48,12 +48,13 @@ final class OrderService
 
             $insertOrder = $pdo->prepare('INSERT INTO orders
                 (order_code, customer_name, customer_phone, fulfillment_method, delivery_address, notes,
-                 subtotal, delivery_fee, total_amount, order_status, payment_method, payment_status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, \'pending\', ?, \'unpaid\')');
+                 subtotal, delivery_fee, total_amount, order_status, payment_method, payment_channel_id, payment_status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, \'pending\', ?, ?, \'unpaid\')');
             $insertOrder->execute([
                 $orderCode, $input['customer_name'], $input['customer_phone'], $input['fulfillment_method'],
                 $input['delivery_address'], $input['notes'], cents_to_decimal($subtotalCents),
                 cents_to_decimal($deliveryCents), cents_to_decimal($totalCents), $input['payment_method'],
+                $input['payment_channel_id'] ?? null,
             ]);
             $orderId = (int) $pdo->lastInsertId();
 
@@ -172,7 +173,7 @@ final class OrderService
             $orderStatus = (string) $order['order_status'];
             $allowed = false;
             if ($adminId === null && $target === 'awaiting_confirmation') {
-                $allowed = $order['payment_method'] === 'simulated_transfer'
+                $allowed = in_array($order['payment_method'], ['bank_transfer', 'qris'], true)
                     && in_array($current, ['unpaid', 'rejected'], true)
                     && !in_array($orderStatus, ['rejected', 'cancelled'], true);
             } elseif ($adminId !== null && $target === 'paid') {
@@ -195,7 +196,7 @@ final class OrderService
             }
             $log = $pdo->prepare("INSERT INTO order_status_logs (order_id, event_type, old_status, new_status, changed_by, note)
                 VALUES (?, 'payment', ?, ?, ?, ?)");
-            $note = $target === 'awaiting_confirmation' ? 'Pembeli menandai transfer simulasi sudah dikirim.' : null;
+            $note = $target === 'awaiting_confirmation' ? 'Pembeli mengirim bukti pembayaran dan meminta konfirmasi.' : null;
             $log->execute([$orderId, $current, $target, $adminId, $note]);
             $pdo->commit();
         } catch (Throwable $exception) {

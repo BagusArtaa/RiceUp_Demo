@@ -16,11 +16,44 @@
             <label class="field" id="address-field"><span>Alamat delivery</span><textarea name="delivery_address" rows="3" maxlength="500" autocomplete="street-address"><?= e($old['delivery_address'] ?? '') ?></textarea><small>Alamat layanan belum dibatasi pada demo. Konfirmasi area sebelum dipakai sungguhan.</small></label>
             <label class="field"><span>Catatan pesanan <small>(opsional)</small></span><textarea name="notes" rows="2" maxlength="500" placeholder="Contoh: level pedas sedang"><?= e($old['notes'] ?? '') ?></textarea></label>
 
-            <fieldset class="form-section"><legend>Pembayaran simulasi</legend>
-                <?php foreach (payment_methods() as $value => $label): ?>
-                    <label class="choice-card"><input type="radio" name="payment_method" value="<?= e($value) ?>" <?= ($old['payment_method'] ?? 'simulated_transfer') === $value ? 'checked' : '' ?>><span><strong><?= e($label) ?></strong><small><?php if ($value === 'simulated_transfer'): ?>Admin perlu mengonfirmasi secara manual. Tidak ada uang yang diproses situs ini.<?php else: ?>Pembayaran ditandai oleh admin setelah diterima.<?php endif; ?></small></span></label>
-                <?php endforeach; ?>
+            <?php $selectedMethod = $old['payment_method'] ?? ''; ?>
+            <fieldset class="form-section"><legend>Metode pembayaran</legend>
+                <?php $firstMethod = true; foreach (payment_methods() as $value => $label): ?>
+                    <label class="choice-card"><input type="radio" name="payment_method" value="<?= e($value) ?>" <?= $selectedMethod === $value ? 'checked' : '' ?> <?= $firstMethod ? 'required' : '' ?>><span><strong><?= e($label) ?></strong><small><?php if ($value === 'bank_transfer'): ?>Transfer ke rekening bank yang tersedia. Upload bukti setelah checkout.<?php elseif ($value === 'qris'): ?>Scan QRIS lalu upload bukti pembayaran.<?php else: ?>Pembayaran ditandai oleh admin setelah diterima.<?php endif; ?></small></span></label>
+                <?php $firstMethod = false; endforeach; ?>
             </fieldset>
+
+            <?php
+            $bankChannels = array_values(array_filter($paymentChannels, fn($c) => $c['channel_type'] === 'bank_transfer'));
+            $qrisChannels = array_values(array_filter($paymentChannels, fn($c) => $c['channel_type'] === 'qris'));
+            ?>
+
+            <fieldset class="form-section payment-channel-section" id="channels-bank_transfer" <?= $selectedMethod !== 'bank_transfer' ? 'hidden' : '' ?>><legend>Pilih rekening bank tujuan</legend>
+                <?php if ($bankChannels === []): ?>
+                    <p class="muted">Belum ada rekening bank yang tersedia. Pilih metode lain atau hubungi admin.</p>
+                <?php else: ?>
+                    <?php foreach ($bankChannels as $ch): ?>
+                        <label class="choice-card channel-card"><input type="radio" name="payment_channel_id" value="<?= (int) $ch['id'] ?>" <?= ($old['payment_channel_id'] ?? '') == $ch['id'] ? 'checked' : '' ?> <?= $selectedMethod !== 'bank_transfer' ? 'disabled' : '' ?>><span><strong><?= e($ch['bank_name']) ?></strong><small><?= e($ch['account_number']) ?> a.n. <?= e($ch['account_holder']) ?></small><?php if ($ch['instructions']): ?><small class="channel-instructions"><?= e($ch['instructions']) ?></small><?php endif; ?></span></label>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </fieldset>
+
+            <fieldset class="form-section payment-channel-section" id="channels-qris" <?= $selectedMethod !== 'qris' ? 'hidden' : '' ?>><legend>Pembayaran QRIS</legend>
+                <?php if ($qrisChannels === []): ?>
+                    <p class="muted">Belum ada QRIS yang tersedia. Pilih metode lain atau hubungi admin.</p>
+                <?php else: ?>
+                    <?php $activeQris = $qrisChannels[0]; ?>
+                    <div class="payment-info-box">
+                        <input type="radio" name="payment_channel_id" value="<?= (int) $activeQris['id'] ?>" <?= $selectedMethod === 'qris' ? 'checked' : 'disabled' ?> hidden>
+                        <h3><?= e($activeQris['bank_name'] ?: 'QRIS') ?></h3>
+                        <?php if ($activeQris['qris_image_path']): ?>
+                            <img src="<?= e(asset($activeQris['qris_image_path'])) ?>" class="qris-display-img" alt="QR Code <?= e($activeQris['bank_name'] ?: 'QRIS') ?>">
+                        <?php endif; ?>
+                        <?php if ($activeQris['instructions']): ?><p class="channel-instructions"><?= e($activeQris['instructions']) ?></p><?php endif; ?>
+                    </div>
+                <?php endif; ?>
+            </fieldset>
+
             <button class="button button-primary button-wide" type="submit">Buat pesanan <span aria-hidden="true">→</span></button>
         </form>
 
